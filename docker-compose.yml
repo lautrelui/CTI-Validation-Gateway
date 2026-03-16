@@ -4,6 +4,9 @@ services:
     container_name: cvg-gateway
     ports:
       - "3010:3010"
+    env_file:
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - CVG_PORT=3010
