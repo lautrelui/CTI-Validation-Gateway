@@ -1,0 +1,28 @@
+services:
+  cvg:
+    build: .
+    container_name: cvg-gateway
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=production
+      - CVG_PORT=3010
+      - CVG_ADMIN_USERNAME=admin
+      - CVG_ADMIN_PASSWORD=admin
+      # In production, set real secrets via .env file or secrets manager:
+      # - CVG_HMAC_KEY=<hex-encoded-32-byte-key>
+      # - CVG_JWT_SECRET=<random-secret>
+      # - CVG_SESSION_SECRET=<random-secret>
+      # - OBX_BGFI_API_KEY=<real-api-key>
+    volumes:
+      - cvg-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3010/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  cvg-data:

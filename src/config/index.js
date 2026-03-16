@@ -9,7 +9,7 @@ const DEFAULT_SESSION_SECRET = process.env.CVG_SESSION_SECRET || crypto.randomBy
 const DEFAULT_ADMIN_PASSWORD = process.env.CVG_ADMIN_PASSWORD || 'admin';
 
 const config = {
-  port: parseInt(process.env.CVG_PORT || '3000', 10),
+  port: parseInt(process.env.CVG_PORT || '3010', 10),
   env: process.env.NODE_ENV || 'development',
 
   db: {

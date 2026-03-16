@@ -113,8 +113,8 @@ function start() {
 ║   Port: ${String(config.port).padEnd(46)}║
 ║   Environment: ${config.env.padEnd(38)}║
 ║   Queue: ${(config.queue.enabled ? 'enabled' : 'disabled').padEnd(45)}║
-║   Dashboard: http://localhost:${config.port}/dashboard${' '.repeat(15)}║
-║   Health: http://localhost:${config.port}/api/v1/health${' '.repeat(12)}║
+║   Dashboard: http://localhost:${config.port}/dashboard${' '.repeat(14)}║
+║   Health: http://localhost:${config.port}/api/v1/health${' '.repeat(11)}║
 ╚═══════════════════════════════════════════════════════╝
     `.trim());
     console.log(`\n[CVG] Login credentials: ${config.admin.username} / ${config.admin.password}`);
