@@ -1,17 +1,27 @@
 /**
- * Embedded IVS Simulator.
- * In production, IVS would be a separate MTN-hosted service.
- * This simulator implements the full IVS verification flow per spec section 4.
+ * IVS Service Layer.
+ *
+ * Supports two modes controlled by IVS_MODE env var:
+ *   - "simulator" (default): embedded mock IVS for development/demo
+ *   - "external": connects to a real IVS at IVS_BASE_URL, with periodic health checks
+ *
+ * In external mode a background poller pings IVS_BASE_URL/api/v1/health every
+ * IVS_HEALTH_CHECK_INTERVAL ms (default 15 s) and caches the result so that
+ * isIvsAvailable() stays synchronous for all callers.
  */
 
 const { v4: uuidv4 } = require('uuid');
+const http = require('http');
+const https = require('https');
 const { getDb } = require('../database/db');
 const { generateIdentifierHmac, maskValue, signClaim } = require('../crypto');
 const { normalizeIdentifier, validateIdentifierFormat } = require('./normalizer');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
 
-// Simulated registry data (in production, these would be real connector calls)
+const isExternalMode = config.ivs.mode === 'external';
+
+// Simulated registry data (used only in simulator mode)
 const MOCK_REGISTRY = {
   NIU: {
     '1234567890123': { full_name: 'JEAN GEOFFRION', date_of_birth: '1980-05-10', status: 'active' },
@@ -31,8 +41,73 @@ const MOCK_REGISTRY = {
   },
 };
 
-// Simulate IVS availability (can be toggled for testing)
-let ivsAvailable = true;
+// --- IVS availability state ---
+let ivsAvailable = !isExternalMode; // external mode starts as unavailable until first successful check
+let ivsLastCheckedAt = null;
+let ivsLastError = null;
+let healthCheckInterval = null;
+
+/**
+ * Ping the real IVS health endpoint.
+ * Updates the cached ivsAvailable flag.
+ */
+function checkExternalIvsHealth() {
+  const url = `${config.ivs.baseUrl}/api/v1/health`;
+  const client = url.startsWith('https') ? https : http;
+
+  const req = client.get(url, { timeout: 5000 }, (res) => {
+    let body = '';
+    res.on('data', (chunk) => { body += chunk; });
+    res.on('end', () => {
+      const wasAvailable = ivsAvailable;
+      ivsAvailable = res.statusCode >= 200 && res.statusCode < 300;
+      ivsLastCheckedAt = new Date().toISOString();
+      ivsLastError = ivsAvailable ? null : `HTTP ${res.statusCode}`;
+      if (wasAvailable !== ivsAvailable) {
+        console.log(`[CVG] IVS status changed: ${ivsAvailable ? 'Available' : 'Unavailable'} (${config.ivs.baseUrl})`);
+      }
+    });
+  });
+
+  req.on('error', (err) => {
+    const wasAvailable = ivsAvailable;
+    ivsAvailable = false;
+    ivsLastCheckedAt = new Date().toISOString();
+    ivsLastError = err.message;
+    if (wasAvailable !== ivsAvailable) {
+      console.log(`[CVG] IVS unreachable: ${err.message} (${config.ivs.baseUrl})`);
+    }
+  });
+
+  req.on('timeout', () => {
+    req.destroy();
+    const wasAvailable = ivsAvailable;
+    ivsAvailable = false;
+    ivsLastCheckedAt = new Date().toISOString();
+    ivsLastError = 'Connection timed out';
+    if (wasAvailable !== ivsAvailable) {
+      console.log(`[CVG] IVS unreachable: timeout (${config.ivs.baseUrl})`);
+    }
+  });
+}
+
+/**
+ * Start periodic IVS health checks (external mode only).
+ */
+function startIvsHealthCheck() {
+  if (!isExternalMode) return;
+  // Run immediately, then on interval
+  checkExternalIvsHealth();
+  healthCheckInterval = setInterval(checkExternalIvsHealth, config.ivs.healthCheckIntervalMs);
+  console.log(`[CVG] IVS external mode: health-checking ${config.ivs.baseUrl} every ${config.ivs.healthCheckIntervalMs / 1000}s`);
+}
+
+function stopIvsHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+}
 
 function setIvsAvailable(available) {
   ivsAvailable = available;
@@ -40,6 +115,16 @@ function setIvsAvailable(available) {
 
 function isIvsAvailable() {
   return ivsAvailable;
+}
+
+function getIvsStatus() {
+  return {
+    mode: config.ivs.mode,
+    available: ivsAvailable,
+    baseUrl: isExternalMode ? config.ivs.baseUrl : null,
+    lastCheckedAt: ivsLastCheckedAt,
+    lastError: ivsLastError,
+  };
 }
 
 /**
@@ -226,4 +311,4 @@ function buildProtectedOnlyClaim(correlationId, identifier, normResult, ivsReque
   };
 }
 
-module.exports = { processVerification, setIvsAvailable, isIvsAvailable };
+module.exports = { processVerification, setIvsAvailable, isIvsAvailable, getIvsStatus, startIvsHealthCheck, stopIvsHealthCheck };

@@ -49,6 +49,8 @@ const config = {
     baseUrl: process.env.IVS_BASE_URL || 'http://localhost:3001',
     timeout: parseInt(process.env.IVS_TIMEOUT || '30000', 10),
     instanceId: process.env.IVS_INSTANCE_ID || 'IVS-MTN-01',
+    mode: process.env.IVS_MODE || 'simulator', // 'simulator' or 'external'
+    healthCheckIntervalMs: parseInt(process.env.IVS_HEALTH_CHECK_INTERVAL || '15000', 10),
   },
 
   gateway: {

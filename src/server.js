@@ -15,6 +15,7 @@ const path = require('path');
 const config = require('./config');
 const { getDb, closeDb } = require('./database/db');
 const { startQueueWorker, stopQueueWorker } = require('./queue/worker');
+const { startIvsHealthCheck, stopIvsHealthCheck } = require('./services/ivs-simulator');
 
 // Routes
 const verificationRoutes = require('./routes/verification');
@@ -94,6 +95,9 @@ function start() {
   const db = getDb();
   console.log(`[CVG] Database initialized`);
 
+  // Start IVS health checker (external mode only)
+  startIvsHealthCheck();
+
   // Start queue worker
   if (config.queue.enabled) {
     startQueueWorker();
@@ -106,6 +110,8 @@ function start() {
 ║   Gateway ID: ${config.gateway.id.padEnd(39)}║
 ║   Port: ${String(config.port).padEnd(46)}║
 ║   Environment: ${config.env.padEnd(38)}║
+║   IVS Mode: ${config.ivs.mode.padEnd(41)}║
+║   IVS URL: ${(config.ivs.mode === 'external' ? config.ivs.baseUrl : 'N/A (simulator)').padEnd(42)}║
 ║   Queue: ${(config.queue.enabled ? 'enabled' : 'disabled').padEnd(45)}║
 ║   Dashboard: http://localhost:${config.port}/dashboard${' '.repeat(14)}║
 ║   Health: http://localhost:${config.port}/api/v1/health${' '.repeat(11)}║
@@ -118,6 +124,7 @@ function start() {
   // Graceful shutdown
   const shutdown = () => {
     console.log('\n[CVG] Shutting down...');
+    stopIvsHealthCheck();
     stopQueueWorker();
     closeDb();
     server.close(() => process.exit(0));

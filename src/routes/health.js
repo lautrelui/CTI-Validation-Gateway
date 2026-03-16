@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
-const { isIvsAvailable } = require('../services/ivs-simulator');
+const { isIvsAvailable, getIvsStatus } = require('../services/ivs-simulator');
 const config = require('../config');
 
 /**
@@ -18,6 +18,8 @@ router.get('/', (req, res) => {
   const ivsOk = isIvsAvailable();
   const overall = dbOk && ivsOk ? 'healthy' : 'degraded';
 
+  const ivsStatus = getIvsStatus();
+
   res.status(overall === 'healthy' ? 200 : 503).json({
     status: overall,
     gateway_id: config.gateway.id,
@@ -27,6 +29,7 @@ router.get('/', (req, res) => {
       ivs: ivsOk ? 'ok' : 'unavailable',
       queue: config.queue.enabled ? 'enabled' : 'disabled',
     },
+    ivs_details: ivsStatus,
   });
 });
 
