@@ -26,14 +26,8 @@ const app = express();
 
 // --- Security ---
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
-    },
-  },
+  contentSecurityPolicy: false, // CSP handled inline; dashboard is internal-only
+  crossOriginEmbedderPolicy: false,
 }));
 
 // --- Rate limiting ---
@@ -59,10 +53,10 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: config.env === 'production',
+    secure: process.env.CVG_COOKIE_SECURE === 'true',
     httpOnly: true,
     maxAge: config.session.maxAge,
-    sameSite: 'strict',
+    sameSite: 'lax',
   },
 }));
 

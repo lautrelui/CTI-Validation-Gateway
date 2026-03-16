@@ -75,12 +75,31 @@ function getLoginPage(error = null) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CVG - Login</title>
   <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    /* Inline fallback so login always looks correct */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body.login-body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0f1117 0%,#161922 50%,#1a1040 100%);color:#e4e6f0;-webkit-font-smoothing:antialiased}
+    .login-container{width:100%;max-width:400px;padding:40px;background:#1c1f2e;border-radius:14px;border:1px solid #2a2d3e;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+    .login-header{text-align:center;margin-bottom:32px}
+    .login-header h1{font-size:22px;font-weight:700;color:#e4e6f0;letter-spacing:-.02em}
+    .login-header .subtitle{font-size:14px;color:#8b8fa3;margin-top:4px}
+    .logo-icon{display:inline-block;margin-bottom:16px}
+    .error-banner{background:rgba(239,68,68,.1);color:#ef4444;padding:12px 16px;border-radius:6px;border:1px solid rgba(239,68,68,.2);margin-bottom:20px;font-size:13px}
+    .login-form .form-group{margin-bottom:20px}
+    .login-form label{display:block;font-size:13px;font-weight:500;color:#8b8fa3;margin-bottom:6px}
+    .login-form input{width:100%;padding:10px 14px;background:#1c1f2e;border:1px solid #2a2d3e;border-radius:6px;color:#e4e6f0;font-size:14px;outline:none;transition:border-color .2s}
+    .login-form input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+    .login-form input::placeholder{color:#5f6375}
+    .btn-primary{width:100%;padding:11px;background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+    .btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.4)}
+    .login-footer{text-align:center;margin-top:24px;font-size:12px;color:#5f6375}
+  </style>
 </head>
 <body class="login-body">
   <div class="login-container">
     <div class="login-header">
       <div class="logo-icon">
-        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="48" height="48" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="40" height="40" rx="10" fill="url(#grad1)"/>
           <path d="M12 20l5 5 11-11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
           <defs><linearGradient id="grad1" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
@@ -124,7 +143,7 @@ function getDashboardPage() {
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo-icon-sm">
-          <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#g1)"/><path d="M10 16l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="g1" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#g1)"/><path d="M10 16l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="g1" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
         </div>
         <span class="sidebar-title">CVG Monitor</span>
       </div>
