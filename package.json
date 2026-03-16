@@ -1,0 +1,23 @@
+{
+  "name": "cti-validation-gateway",
+  "version": "1.0.0",
+  "description": "CTI Verification Gateway (CVG) - Secure relay and control layer for identifier verification",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "init-db": "node src/database/init.js",
+    "test": "node --test src/tests/**/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "better-sqlite3": "^11.7.0",
+    "uuid": "^10.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "helmet": "^8.0.0",
+    "express-rate-limit": "^7.4.0",
+    "cookie-parser": "^1.4.7",
+    "express-session": "^1.18.1"
+  }
+}
