@@ -75,4 +75,13 @@ function postToIvs(path, body) {
   });
 }
 
-module.exports = { sendVerification };
+/**
+ * Verify a claim signature via the IVS remote endpoint.
+ * POST /api/v1/claims/verify with the claim object.
+ * Returns the IVS response { verified: true/false, ... }.
+ */
+function verifyClaimRemote(claim) {
+  return postToIvs(config.ivs.claimVerifyPath, { claim });
+}
+
+module.exports = { sendVerification, verifyClaimRemote };

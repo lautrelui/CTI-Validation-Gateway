@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const config = require('../config');
 
 // --- HMAC Module ---
@@ -76,6 +77,23 @@ function verifyClaim(claimPayload, signature) {
 }
 
 /**
+ * Verify an IVS claim signed with HS512 (symmetric HMAC-SHA512).
+ * The signature field is a JWT compact token.
+ * Returns { verified: true, payload } on success, { verified: false, error } on failure.
+ */
+function verifyClaimHs512(signatureJwt, signingKey) {
+  if (!signingKey) {
+    return { verified: false, error: 'IVS_SIGNING_KEY not configured' };
+  }
+  try {
+    const payload = jwt.verify(signatureJwt, signingKey, { algorithms: ['HS512'] });
+    return { verified: true, payload };
+  } catch (err) {
+    return { verified: false, error: err.message };
+  }
+}
+
+/**
  * Get the public key for distribution to verifiers.
  */
 function getPublicKey() {
@@ -113,6 +131,7 @@ module.exports = {
   maskValue,
   signClaim,
   verifyClaim,
+  verifyClaimHs512,
   getPublicKey,
   encryptPayload,
   decryptPayload,

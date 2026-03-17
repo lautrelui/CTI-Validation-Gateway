@@ -9,10 +9,61 @@ const { authenticateOneBox } = require('../middleware/auth');
 const { validateVerificationRequest } = require('../middleware/validate');
 const { generateCorrelationId, generateAuditRef, generateLocalVerificationRef } = require('../services/correlation');
 const { isIvsAvailable } = require('../services/ivs-simulator');
-const { sendVerification } = require('../services/ivs-client');
-const { maskValue, verifyClaim, encryptPayload } = require('../crypto');
+const { sendVerification, verifyClaimRemote } = require('../services/ivs-client');
+const { maskValue, verifyClaim, verifyClaimHs512, encryptPayload } = require('../crypto');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
+
+/**
+ * Determine the effective claim verification mode.
+ * 'auto': use local HS512 if IVS_SIGNING_KEY is set, otherwise remote if external, otherwise RSA.
+ */
+function getClaimVerifyMode() {
+  const mode = config.ivs.claimVerifyMode;
+  if (mode !== 'auto') return mode;
+  // auto: prefer local HS512 if key is available, else remote if external, else legacy RSA
+  if (config.ivs.signingKey) return 'local';
+  if (config.ivs.mode === 'external') return 'remote';
+  return 'legacy';
+}
+
+/**
+ * Verify an IVS claim signature using the configured mode.
+ * Returns { verified: boolean, method: string, error?: string }
+ */
+async function verifyIvsClaim(claim) {
+  if (!claim?.signature) {
+    return { verified: false, method: 'none', error: 'No signature on claim' };
+  }
+
+  const mode = getClaimVerifyMode();
+
+  if (mode === 'none') {
+    return { verified: true, method: 'skipped' };
+  }
+
+  if (mode === 'local') {
+    // HS512 JWT verification with shared signing key
+    const result = verifyClaimHs512(claim.signature, config.ivs.signingKey);
+    return { verified: result.verified, method: 'local_hs512', error: result.error || undefined };
+  }
+
+  if (mode === 'remote') {
+    // Delegate to IVS /api/v1/claims/verify
+    try {
+      const ivsResult = await verifyClaimRemote(claim);
+      const verified = ivsResult.verified === true || ivsResult.status === 'valid';
+      return { verified, method: 'remote_ivs', error: verified ? undefined : (ivsResult.error || ivsResult.message) };
+    } catch (err) {
+      return { verified: false, method: 'remote_ivs', error: err.message };
+    }
+  }
+
+  // Legacy RSA verification (simulator mode)
+  const { signature, ...claimWithoutSig } = claim;
+  const verified = verifyClaim(claimWithoutSig, signature);
+  return { verified, method: 'legacy_rsa' };
+}
 
 /**
  * POST /api/v1/verification/identifiers
@@ -166,21 +217,22 @@ async function handleVerification(req, res) {
       });
 
       // Verify IVS signature (spec section 3.13)
-      let signatureVerified = false;
-      if (claim?.signature) {
-        const { signature, ...claimWithoutSig } = claim;
-        signatureVerified = verifyClaim(claimWithoutSig, signature);
-        if (!signatureVerified) {
-          recordAuditEvent(EventTypes.IVS_CALL_FAILED, correlationId, { reason: 'SIGNATURE_VERIFICATION_FAILED' });
-          db.prepare("UPDATE verification_requests SET status = 'signature_failed', completed_at = datetime('now') WHERE correlation_id = ?").run(correlationId);
-          return res.status(502).json({
-            status: 'error',
-            error_code: 'SIGNATURE_VERIFICATION_FAILED',
-            correlation_id: correlationId,
-            gateway_audit_ref: gatewayAuditRef,
-            message: 'IVS claim signature verification failed',
-          });
-        }
+      const sigResult = await verifyIvsClaim(claim);
+      const signatureVerified = sigResult.verified;
+      if (claim?.signature && !signatureVerified) {
+        recordAuditEvent(EventTypes.IVS_CALL_FAILED, correlationId, {
+          reason: 'SIGNATURE_VERIFICATION_FAILED',
+          method: sigResult.method,
+          error: sigResult.error,
+        });
+        db.prepare("UPDATE verification_requests SET status = 'signature_failed', completed_at = datetime('now') WHERE correlation_id = ?").run(correlationId);
+        return res.status(502).json({
+          status: 'error',
+          error_code: 'SIGNATURE_VERIFICATION_FAILED',
+          correlation_id: correlationId,
+          gateway_audit_ref: gatewayAuditRef,
+          message: `IVS claim signature verification failed (${sigResult.method}): ${sigResult.error || 'unknown'}`,
+        });
       }
 
       // Store result
