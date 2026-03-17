@@ -1,5 +1,9 @@
 /**
  * Correlation ID and audit ref generation per spec section 3.9.
+ *
+ * Uses a single daily counter so each request gets one increment.
+ * The correlation_id, audit_ref, and local_verification_ref for the
+ * same request derive from the SAME counter value to avoid collisions.
  */
 
 const { getDb } = require('../database/db');
@@ -16,10 +20,17 @@ function getNextCounter() {
   const today = getDateStr();
   if (today !== lastDate) {
     lastDate = today;
-    // Restore counter from DB
+    // Restore counter from DB — use the max suffix from existing correlation IDs
     const db = getDb();
-    const row = db.prepare("SELECT COUNT(*) as cnt FROM verification_requests WHERE created_at >= date('now')").get();
-    dailyCounter = row.cnt;
+    const row = db.prepare(
+      "SELECT correlation_id FROM verification_requests WHERE correlation_id LIKE ? ORDER BY correlation_id DESC LIMIT 1"
+    ).get(`cvg-${today}-%`);
+    if (row) {
+      const suffix = parseInt(row.correlation_id.split('-').pop(), 10);
+      dailyCounter = isNaN(suffix) ? 0 : suffix;
+    } else {
+      dailyCounter = 0;
+    }
   }
   dailyCounter++;
   return dailyCounter;
@@ -34,19 +45,20 @@ function generateCorrelationId() {
 }
 
 /**
- * Generate gateway_audit_ref: AUD-CVG-YYYYMMDD-NNNNN
+ * Generate gateway_audit_ref from correlation_id counter.
+ * Called AFTER generateCorrelationId() for the same request — reuses
+ * the current counter value so we don't burn a second number.
  */
 function generateAuditRef() {
-  const counter = getNextCounter();
-  return `AUD-CVG-${getDateStr()}-${String(counter).padStart(5, '0')}`;
+  return `AUD-CVG-${getDateStr()}-${String(dailyCounter).padStart(5, '0')}`;
 }
 
 /**
  * Generate local verification ref for queued items.
+ * Also reuses the current counter value.
  */
 function generateLocalVerificationRef() {
-  const counter = getNextCounter();
-  return `CVG-VER-${getDateStr()}-${String(counter).padStart(6, '0')}`;
+  return `CVG-VER-${getDateStr()}-${String(dailyCounter).padStart(6, '0')}`;
 }
 
 module.exports = { generateCorrelationId, generateAuditRef, generateLocalVerificationRef };

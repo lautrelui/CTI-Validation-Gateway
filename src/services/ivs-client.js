@@ -2,7 +2,7 @@
  * IVS Client - routes verification requests to the correct backend.
  *
  * In "simulator" mode: calls the embedded processVerification() directly.
- * In "external" mode: POSTs to IVS_BASE_URL/api/v1/verification/process.
+ * In "external" mode: POSTs to IVS_BASE_URL + config.ivs.verifyPath.
  */
 
 const http = require('http');
@@ -23,7 +23,7 @@ function sendVerification(ivsRequest) {
   }
 
   // External mode: HTTP POST to real IVS
-  return postToIvs('/api/v1/verification/process', ivsRequest);
+  return postToIvs(config.ivs.verifyPath, ivsRequest);
 }
 
 /**
