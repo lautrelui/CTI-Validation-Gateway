@@ -5,7 +5,8 @@
 
 const { getDb } = require('../database/db');
 const { decryptPayload } = require('../crypto');
-const { processVerification, isIvsAvailable } = require('../services/ivs-simulator');
+const { isIvsAvailable } = require('../services/ivs-simulator');
+const { sendVerification } = require('../services/ivs-client');
 const { verifyClaim } = require('../crypto');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
@@ -30,7 +31,7 @@ function stopQueueWorker() {
   }
 }
 
-function processQueue() {
+async function processQueue() {
   if (!isIvsAvailable()) return;
 
   const db = getDb();
@@ -46,7 +47,7 @@ function processQueue() {
   `).all();
 
   for (const item of items) {
-    processQueueItem(item, db);
+    await processQueueItem(item, db);
   }
 
   // Expire old items
@@ -66,7 +67,7 @@ function processQueue() {
   }
 }
 
-function processQueueItem(item, db) {
+async function processQueueItem(item, db) {
   const correlationId = item.correlation_id;
 
   try {
@@ -83,7 +84,7 @@ function processQueueItem(item, db) {
     `).run(item.id);
 
     // Attempt verification
-    const ivsResponse = processVerification(request);
+    const ivsResponse = await sendVerification(request);
 
     if (ivsResponse.status === 'success' && ivsResponse.verification_status !== 'registry_unavailable') {
       // Verify IVS signature

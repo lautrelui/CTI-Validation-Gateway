@@ -8,7 +8,8 @@ const { getDb } = require('../database/db');
 const { authenticateOneBox } = require('../middleware/auth');
 const { validateVerificationRequest } = require('../middleware/validate');
 const { generateCorrelationId, generateAuditRef, generateLocalVerificationRef } = require('../services/correlation');
-const { processVerification, isIvsAvailable } = require('../services/ivs-simulator');
+const { isIvsAvailable } = require('../services/ivs-simulator');
+const { sendVerification } = require('../services/ivs-client');
 const { maskValue, verifyClaim, encryptPayload } = require('../crypto');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
@@ -20,7 +21,7 @@ const config = require('../config');
 router.post('/identifiers',
   authenticateOneBox,
   validateVerificationRequest,
-  (req, res) => {
+  async (req, res) => {
     const db = getDb();
     const { identifier, request_context, person_context, options } = req.body;
     const correlationId = generateCorrelationId();
@@ -112,7 +113,7 @@ router.post('/identifiers',
     };
 
     try {
-      const ivsResponse = processVerification(ivsRequest);
+      const ivsResponse = await sendVerification(ivsRequest);
 
       if (ivsResponse.status === 'error' && ivsResponse.error_code === 'IVS_UNAVAILABLE') {
         // IVS became unavailable during processing
