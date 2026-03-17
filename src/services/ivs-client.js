@@ -44,6 +44,7 @@ function postToIvs(path, body) {
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload),
+        ...(config.ivs.apiKey ? { 'X-Api-Key': config.ivs.apiKey } : {}),
       },
     };
 
