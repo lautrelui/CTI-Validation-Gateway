@@ -115,6 +115,20 @@ router.post('/identifiers',
     try {
       const ivsResponse = await sendVerification(ivsRequest);
 
+      // Log the raw IVS response for debugging (external mode)
+      if (config.ivs.mode === 'external') {
+        console.log(`[CVG] IVS response for ${correlationId}:`, JSON.stringify(ivsResponse, null, 2));
+      }
+
+      // Normalize: extract verification_status from wherever the IVS puts it
+      const verificationStatus = ivsResponse.verification_status
+        || ivsResponse.claim?.verification_status
+        || ivsResponse.data?.verification_status
+        || (ivsResponse.status === 'error' ? 'error' : null);
+
+      // Extract claim from possible wrapper
+      const claim = ivsResponse.claim || ivsResponse.data?.claim || null;
+
       if (ivsResponse.status === 'error' && ivsResponse.error_code === 'IVS_UNAVAILABLE') {
         // IVS became unavailable during processing
         const queueAllowed = options?.queue_if_ivs_unavailable !== false && config.queue.enabled;
@@ -143,13 +157,13 @@ router.post('/identifiers',
 
       // IVS call succeeded
       recordAuditEvent(EventTypes.IVS_CALL_SUCCEEDED, correlationId, {
-        verification_status: ivsResponse.verification_status,
+        verification_status: verificationStatus,
       });
 
       // Verify IVS signature (spec section 3.13)
       let signatureVerified = false;
-      if (ivsResponse.claim?.signature) {
-        const { signature, ...claimWithoutSig } = ivsResponse.claim;
+      if (claim?.signature) {
+        const { signature, ...claimWithoutSig } = claim;
         signatureVerified = verifyClaim(claimWithoutSig, signature);
         if (!signatureVerified) {
           recordAuditEvent(EventTypes.IVS_CALL_FAILED, correlationId, { reason: 'SIGNATURE_VERIFICATION_FAILED' });
@@ -165,28 +179,29 @@ router.post('/identifiers',
       }
 
       // Store result
+      const finalStatus = verificationStatus || 'unknown';
       db.prepare(`
         INSERT INTO verification_results (correlation_id, verification_status, claim_json, ivs_signature_verified)
         VALUES (?, ?, ?, ?)
-      `).run(correlationId, ivsResponse.verification_status, JSON.stringify(ivsResponse.claim), signatureVerified ? 1 : 0);
+      `).run(correlationId, finalStatus, JSON.stringify(claim), signatureVerified ? 1 : 0);
 
       // Update request status
       db.prepare("UPDATE verification_requests SET status = ?, completed_at = datetime('now') WHERE correlation_id = ?")
-        .run(ivsResponse.verification_status, correlationId);
+        .run(finalStatus, correlationId);
 
       // Audit: response returned
       recordAuditEvent(EventTypes.RESPONSE_RETURNED_TO_ONEBOX, correlationId, {
-        verification_status: ivsResponse.verification_status,
+        verification_status: finalStatus,
         signature_verified: signatureVerified,
       });
 
       // Return the response per spec section 3.7
       return res.status(200).json({
         status: 'success',
-        verification_status: ivsResponse.verification_status,
+        verification_status: finalStatus,
         correlation_id: correlationId,
         gateway_audit_ref: gatewayAuditRef,
-        claim: ivsResponse.claim,
+        claim,
       });
 
     } catch (err) {

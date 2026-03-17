@@ -86,26 +86,35 @@ async function processQueueItem(item, db) {
     // Attempt verification
     const ivsResponse = await sendVerification(request);
 
-    if (ivsResponse.status === 'success' && ivsResponse.verification_status !== 'registry_unavailable') {
+    // Normalize: extract fields from wherever the IVS puts them
+    const verificationStatus = ivsResponse.verification_status
+      || ivsResponse.claim?.verification_status
+      || ivsResponse.data?.verification_status
+      || (ivsResponse.status === 'error' ? 'error' : null);
+    const claim = ivsResponse.claim || ivsResponse.data?.claim || null;
+
+    if (ivsResponse.status === 'success' && verificationStatus !== 'registry_unavailable') {
       // Verify IVS signature
       let sigVerified = false;
-      if (ivsResponse.claim?.signature) {
-        const { signature, ...claimWithoutSig } = ivsResponse.claim;
+      if (claim?.signature) {
+        const { signature, ...claimWithoutSig } = claim;
         sigVerified = verifyClaim(claimWithoutSig, signature);
       }
+
+      const finalStatus = verificationStatus || 'unknown';
 
       // Store result
       db.prepare(`
         INSERT INTO verification_results (correlation_id, verification_status, claim_json, ivs_signature_verified)
         VALUES (?, ?, ?, ?)
-      `).run(correlationId, ivsResponse.verification_status, JSON.stringify(ivsResponse.claim), sigVerified ? 1 : 0);
+      `).run(correlationId, finalStatus, JSON.stringify(claim), sigVerified ? 1 : 0);
 
       // Update statuses
       db.prepare("UPDATE verification_queue SET status = 'succeeded' WHERE id = ?").run(item.id);
-      db.prepare("UPDATE verification_requests SET status = ?, completed_at = datetime('now') WHERE correlation_id = ?").run(ivsResponse.verification_status, correlationId);
+      db.prepare("UPDATE verification_requests SET status = ?, completed_at = datetime('now') WHERE correlation_id = ?").run(finalStatus, correlationId);
 
       recordAuditEvent(EventTypes.QUEUED_REQUEST_SUCCEEDED, correlationId, {
-        verification_status: ivsResponse.verification_status,
+        verification_status: finalStatus,
       });
     } else {
       // Still failing, schedule next retry
