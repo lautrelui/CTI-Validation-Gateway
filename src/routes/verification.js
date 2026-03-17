@@ -21,7 +21,12 @@ const config = require('../config');
 router.post('/identifiers',
   authenticateOneBox,
   validateVerificationRequest,
-  async (req, res) => {
+  (req, res, next) => {
+    handleVerification(req, res).catch(next);
+  }
+);
+
+async function handleVerification(req, res) {
     const db = getDb();
     const { identifier, request_context, person_context, options } = req.body;
     const correlationId = generateCorrelationId();
@@ -218,7 +223,6 @@ router.post('/identifiers',
       });
     }
   }
-);
 
 /**
  * Handle queuing when IVS is unavailable (spec section 3.8, 3.10).
