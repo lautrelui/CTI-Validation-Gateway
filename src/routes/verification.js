@@ -30,7 +30,7 @@ async function handleVerification(req, res) {
     const db = getDb();
     const { identifier, request_context, person_context, options } = req.body;
     const correlationId = generateCorrelationId();
-    const gatewayAuditRef = generateAuditRef();
+    const gatewayAuditRef = generateAuditRef(correlationId);
     const maskedPreview = maskValue(identifier.raw_value);
 
     // Audit: request received
@@ -228,7 +228,7 @@ async function handleVerification(req, res) {
  * Handle queuing when IVS is unavailable (spec section 3.8, 3.10).
  */
 function handleQueueRequest(req, res, correlationId, gatewayAuditRef, identifier, requestContext, personContext, options, db) {
-  const localVerRef = generateLocalVerificationRef();
+  const localVerRef = generateLocalVerificationRef(correlationId);
 
   // Encrypt the request payload for transient storage
   const ivsRequest = {
