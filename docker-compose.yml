@@ -17,6 +17,9 @@ services:
       # - CVG_JWT_SECRET=<random-secret>
       # - CVG_SESSION_SECRET=<random-secret>
       # - OBX_BGFI_API_KEY=<real-api-key>
+      # Central DIT callback (required when IVS_MODE=external):
+      # - CENTRAL_DIT_BASE_URL=http://central-dit:3020
+      # - CENTRAL_DIT_API_KEY=<central-dit-api-key>
     volumes:
       - cvg-data:/app/data
     restart: unless-stopped

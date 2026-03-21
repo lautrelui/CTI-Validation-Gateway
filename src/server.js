@@ -91,10 +91,9 @@ app.use((err, req, res, _next) => {
 
 // --- Startup ---
 function start() {
-  // Fail fast if Central DIT is not configured in external mode
+  // Warn if Central DIT is not configured in external mode
   if (config.ivs.mode === 'external' && !config.centralDit.baseUrl) {
-    console.error('[CVG] FATAL: CENTRAL_DIT_BASE_URL must be set when IVS_MODE=external');
-    process.exit(1);
+    console.warn('[CVG] WARNING: CENTRAL_DIT_BASE_URL is not set. Callbacks will be queued but cannot be delivered until configured.');
   }
 
   // Initialize database
