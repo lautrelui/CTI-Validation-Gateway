@@ -20,6 +20,7 @@ function initDatabase(dbPath) {
     CREATE TABLE IF NOT EXISTS verification_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       correlation_id TEXT UNIQUE NOT NULL,
+      verification_request_id TEXT,
       requesting_assujetti_id TEXT NOT NULL,
       onebox_id TEXT NOT NULL,
       identifier_type TEXT NOT NULL,
@@ -28,6 +29,9 @@ function initDatabase(dbPath) {
       gateway_audit_ref TEXT UNIQUE NOT NULL,
       local_request_ref TEXT,
       purpose TEXT,
+      callback_status TEXT,
+      callback_delivered_at TEXT,
+      callback_last_error TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       completed_at TEXT
     );
@@ -53,6 +57,20 @@ function initDatabase(dbPath) {
       ivs_signature_verified INTEGER DEFAULT 0,
       received_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (correlation_id) REFERENCES verification_requests(correlation_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS callback_delivery_queue (
+      id TEXT PRIMARY KEY,
+      verification_request_id TEXT NOT NULL,
+      correlation_id TEXT NOT NULL,
+      payload_encrypted TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      last_retry_at TEXT,
+      next_retry_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      delivered_at TEXT,
+      last_error TEXT
     );
 
     CREATE TABLE IF NOT EXISTS audit_events (
@@ -119,6 +137,10 @@ function initDatabase(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_ae_type ON audit_events(event_type);
     CREATE INDEX IF NOT EXISTS idx_ae_correlation ON audit_events(correlation_id);
     CREATE INDEX IF NOT EXISTS idx_ae_created ON audit_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_vr_verification_request_id ON verification_requests(verification_request_id);
+    CREATE INDEX IF NOT EXISTS idx_cdq_status ON callback_delivery_queue(status);
+    CREATE INDEX IF NOT EXISTS idx_cdq_next_retry ON callback_delivery_queue(next_retry_at);
+    CREATE INDEX IF NOT EXISTS idx_cdq_correlation ON callback_delivery_queue(correlation_id);
   `);
 
   return db;

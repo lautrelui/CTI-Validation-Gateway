@@ -4,7 +4,16 @@ const config = require('../config');
  * Validate verification request payload per spec section 3.6.
  */
 function validateVerificationRequest(req, res, next) {
-  const { identifier, request_context, options } = req.body;
+  const { verification_request_id, identifier, request_context, options } = req.body;
+
+  // verification_request_id is mandatory (assigned by Central DIT)
+  if (!verification_request_id || typeof verification_request_id !== 'string' || !verification_request_id.trim()) {
+    return res.status(400).json({
+      status: 'error',
+      error_code: 'INVALID_VERIFICATION_REQUEST_ID',
+      message: 'verification_request_id is required and must be a non-empty string',
+    });
+  }
 
   const errors = [];
 
@@ -50,6 +59,15 @@ function validateVerificationRequest(req, res, next) {
       error_code: 'INVALID_IDENTIFIER_INPUT',
       message: 'Request validation failed',
       errors,
+    });
+  }
+
+  // Enforce request ownership: X-OneBox-Id header must match request_context.onebox_id
+  if (req.caller && request_context?.onebox_id && req.caller.oneboxId !== request_context.onebox_id) {
+    return res.status(403).json({
+      status: 'error',
+      error_code: 'ONEBOX_ID_MISMATCH',
+      message: 'X-OneBox-Id header does not match request_context.onebox_id',
     });
   }
 

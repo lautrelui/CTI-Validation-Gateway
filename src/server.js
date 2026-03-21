@@ -91,6 +91,12 @@ app.use((err, req, res, _next) => {
 
 // --- Startup ---
 function start() {
+  // Fail fast if Central DIT is not configured in external mode
+  if (config.ivs.mode === 'external' && !config.centralDit.baseUrl) {
+    console.error('[CVG] FATAL: CENTRAL_DIT_BASE_URL must be set when IVS_MODE=external');
+    process.exit(1);
+  }
+
   // Initialize database
   const db = getDb();
   console.log(`[CVG] Database initialized`);
@@ -112,6 +118,7 @@ function start() {
 ║   Environment: ${config.env.padEnd(38)}║
 ║   IVS Mode: ${config.ivs.mode.padEnd(41)}║
 ║   IVS URL: ${(config.ivs.mode === 'external' ? config.ivs.baseUrl : 'N/A (simulator)').padEnd(42)}║
+║   Central DIT: ${(config.centralDit.baseUrl || 'N/A').padEnd(37)}║
 ║   Queue: ${(config.queue.enabled ? 'enabled' : 'disabled').padEnd(45)}║
 ║   Dashboard: http://localhost:${config.port}/dashboard${' '.repeat(14)}║
 ║   Health: http://localhost:${config.port}/api/v1/health${' '.repeat(11)}║

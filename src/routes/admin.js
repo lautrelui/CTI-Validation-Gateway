@@ -7,7 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
 const { requireDashboardAuth } = require('../middleware/auth');
-const { getQueueStats, processQueue } = require('../queue/worker');
+const { getQueueStats, processQueue, processCallbackQueue, getCallbackQueueStats } = require('../queue/worker');
 const { getAuditEvents, getAuditStats } = require('../audit');
 const { isIvsAvailable, setIvsAvailable } = require('../services/ivs-simulator');
 
@@ -64,6 +64,7 @@ router.get('/stats', (req, res) => {
   const lastHour = db.prepare("SELECT COUNT(*) as count FROM verification_requests WHERE created_at >= datetime('now', '-1 hour')").get();
 
   const queueStats = getQueueStats();
+  const callbackQueueStats = getCallbackQueueStats();
   const auditStats = getAuditStats();
 
   // Recent requests
@@ -93,6 +94,7 @@ router.get('/stats', (req, res) => {
     byType,
     byAssujetti,
     queue: queueStats,
+    callbackQueue: callbackQueueStats,
     audit: auditStats,
     recentRequests,
     hourlyVolume,
@@ -138,6 +140,54 @@ router.get('/requests', (req, res) => {
 
   const items = db.prepare(query).all(...params);
   res.json({ items });
+});
+
+/**
+ * GET /api/v1/admin/callback-queue
+ */
+router.get('/callback-queue', (req, res) => {
+  const db = getDb();
+  const { status, limit = 50, offset = 0 } = req.query;
+
+  let query = `
+    SELECT cdq.*, vr.identifier_type, vr.masked_value_preview, vr.onebox_id, vr.requesting_assujetti_id
+    FROM callback_delivery_queue cdq
+    LEFT JOIN verification_requests vr ON cdq.correlation_id = vr.correlation_id
+    WHERE 1=1`;
+  const params = [];
+
+  if (status) {
+    query += ' AND cdq.status = ?';
+    params.push(status);
+  }
+
+  query += ' ORDER BY cdq.created_at DESC LIMIT ? OFFSET ?';
+  params.push(parseInt(limit), parseInt(offset));
+
+  const items = db.prepare(query).all(...params);
+  const stats = getCallbackQueueStats();
+
+  res.json({ items, stats });
+});
+
+/**
+ * GET /api/v1/admin/callback-queue/stats
+ */
+router.get('/callback-queue/stats', (req, res) => {
+  const stats = getCallbackQueueStats();
+  res.json(stats);
+});
+
+/**
+ * POST /api/v1/admin/callback-queue/retry
+ */
+router.post('/callback-queue/retry', async (req, res) => {
+  try {
+    await processCallbackQueue();
+    res.json({ status: 'success', message: 'Callback queue processing triggered' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
 });
 
 /**

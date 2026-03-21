@@ -62,6 +62,14 @@ const config = {
     id: process.env.CVG_GATEWAY_ID || 'CVG-CTI-01',
   },
 
+  centralDit: {
+    baseUrl: process.env.CENTRAL_DIT_BASE_URL || '',
+    callbackPath: process.env.CENTRAL_DIT_CALLBACK_PATH || '/api/v1/verification/callbacks/ivs',
+    timeout: parseInt(process.env.CENTRAL_DIT_TIMEOUT || '5000', 10),
+    authMode: process.env.CENTRAL_DIT_AUTH_MODE || 'api_key',
+    apiKey: process.env.CENTRAL_DIT_API_KEY || '',
+  },
+
   queue: {
     enabled: process.env.CVG_QUEUE_ENABLED !== 'false',
     defaultTtlHours: parseInt(process.env.CVG_QUEUE_TTL_HOURS || '48', 10),
