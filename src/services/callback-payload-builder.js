@@ -29,11 +29,23 @@ function buildCallbackPayload(ctx) {
     gateway_audit_ref: ctx.gateway_audit_ref,
     onebox_id: ctx.onebox_id,
     requesting_assujetti_id: ctx.requesting_assujetti_id,
-    verification_status: ctx.verification_status,
-    claim: ctx.claim || null,
+    verification_status: ctx.verification_status?.toUpperCase(),
+    claim: normalizeClaimStatus(ctx.claim),
     signature_verified: ctx.signature_verified || false,
     signature_method: ctx.signature_method || null,
     delivered_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Central DIT expects verification_status as uppercase enum.
+ * The IVS simulator returns lowercase — normalize before sending.
+ */
+function normalizeClaimStatus(claim) {
+  if (!claim) return null;
+  return {
+    ...claim,
+    verification_status: claim.verification_status?.toUpperCase(),
   };
 }
 
