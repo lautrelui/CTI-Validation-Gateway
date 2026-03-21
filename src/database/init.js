@@ -143,7 +143,36 @@ function initDatabase(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_cdq_correlation ON callback_delivery_queue(correlation_id);
   `);
 
+  // --- Schema migrations for existing databases ---
+  migrateSchema(db);
+
   return db;
+}
+
+/**
+ * Add columns to existing tables that were created before the Central DIT
+ * callback architecture. ALTER TABLE ADD COLUMN is safe to re-run: SQLite
+ * throws if the column already exists, so we catch and ignore.
+ */
+function migrateSchema(db) {
+  const migrations = [
+    // Central DIT callback columns on verification_requests
+    `ALTER TABLE verification_requests ADD COLUMN verification_request_id TEXT`,
+    `ALTER TABLE verification_requests ADD COLUMN callback_status TEXT`,
+    `ALTER TABLE verification_requests ADD COLUMN callback_delivered_at TEXT`,
+    `ALTER TABLE verification_requests ADD COLUMN callback_last_error TEXT`,
+  ];
+
+  for (const sql of migrations) {
+    try {
+      db.exec(sql);
+    } catch (err) {
+      // "duplicate column name" means column already exists — that's fine
+      if (!err.message.includes('duplicate column')) {
+        throw err;
+      }
+    }
+  }
 }
 
 // Run directly to initialize
