@@ -375,27 +375,32 @@
   function getPreset(name) {
     const presets = {
       'niu-bgfi': {
+        verification_request_id: 'vr-test-niu-bgfi-001',
         identifier: { identifier_type: 'NIU', raw_value: '1234567890123', issuer_country: 'CG' },
         request_context: { requesting_assujetti_id: 'BGFI', requesting_assujetti_name: 'BGFI Congo', onebox_id: 'OBX-BGFI-01', local_request_ref: 'REQ-2026-000771', purpose: 'kyc_verification' },
         person_context: { token: 'pdit:cg:artf:52cee71d-637b-462a-95a3-2f7ec9f844db' },
         options: { queue_if_ivs_unavailable: true, allow_protection_without_registry: false }
       },
       'passport-bgfi': {
+        verification_request_id: 'vr-test-passport-bgfi-001',
         identifier: { identifier_type: 'PASSPORT', raw_value: 'CG1234567', issuer_country: 'CG' },
         request_context: { requesting_assujetti_id: 'BGFI', requesting_assujetti_name: 'BGFI Congo', onebox_id: 'OBX-BGFI-01', local_request_ref: 'REQ-2026-000772', purpose: 'kyc_verification' },
         options: { queue_if_ivs_unavailable: true }
       },
       'niu-unknown': {
+        verification_request_id: 'vr-test-niu-unknown-001',
         identifier: { identifier_type: 'NIU', raw_value: '0000000000000', issuer_country: 'CG' },
         request_context: { requesting_assujetti_id: 'BGFI', requesting_assujetti_name: 'BGFI Congo', onebox_id: 'OBX-BGFI-01', local_request_ref: 'REQ-2026-000773', purpose: 'kyc_verification' },
         options: { queue_if_ivs_unavailable: false }
       },
       'niu-queue': {
+        verification_request_id: 'vr-test-niu-queue-001',
         identifier: { identifier_type: 'NIU', raw_value: '1234567890123', issuer_country: 'CG' },
         request_context: { requesting_assujetti_id: 'BGFI', requesting_assujetti_name: 'BGFI Congo', onebox_id: 'OBX-BGFI-01', local_request_ref: 'REQ-2026-000774', purpose: 'kyc_verification' },
         options: { queue_if_ivs_unavailable: true }
       },
       'niu-invalid': {
+        verification_request_id: 'vr-test-niu-invalid-001',
         identifier: { identifier_type: 'NIU', raw_value: '123', issuer_country: 'CG' },
         request_context: { requesting_assujetti_id: 'BGFI', requesting_assujetti_name: 'BGFI Congo', onebox_id: 'OBX-BGFI-01', local_request_ref: 'REQ-2026-000775', purpose: 'kyc_verification' },
         options: {}
