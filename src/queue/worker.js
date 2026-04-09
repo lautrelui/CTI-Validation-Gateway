@@ -128,13 +128,14 @@ async function processQueueItem(item, db) {
 
     const ivsResponse = await sendVerification(request);
 
+    const isIvsError = ivsResponse.status === 'error' || !!ivsResponse.error;
     const verificationStatus = ivsResponse.verification_status
       || ivsResponse.claim?.verification_status
       || ivsResponse.data?.verification_status
-      || (ivsResponse.status === 'error' ? 'error' : null);
+      || (isIvsError ? 'error' : null);
     const claim = ivsResponse.claim || ivsResponse.data?.claim || null;
 
-    if (ivsResponse.status === 'success' && verificationStatus !== 'registry_unavailable') {
+    if (!isIvsError && verificationStatus !== 'registry_unavailable') {
       const sigResult = await verifyClaimSignature(claim);
       const sigVerified = sigResult.verified;
 

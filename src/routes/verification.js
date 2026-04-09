@@ -177,15 +177,22 @@ async function handleVerification(req, res) {
       console.log(`[CVG] IVS response for ${correlationId}:`, JSON.stringify(ivsResponse, null, 2));
     }
 
+    // Detect error responses from IVS.
+    // Simulator uses: { status: 'error', error_code: '...' }
+    // Real IVS uses:  { error: 'UNAUTHORIZED', message: '...' }
+    const isIvsError = ivsResponse.status === 'error' || !!ivsResponse.error;
+    const ivsErrorCode = ivsResponse.error_code || ivsResponse.error || 'IVS_ERROR';
+    const ivsErrorMessage = ivsResponse.message || ivsResponse.error || 'Unknown IVS error';
+
     // Normalize: extract verification_status from wherever the IVS puts it
     const verificationStatus = ivsResponse.verification_status
       || ivsResponse.claim?.verification_status
       || ivsResponse.data?.verification_status
-      || (ivsResponse.status === 'error' ? 'error' : null);
+      || (isIvsError ? 'error' : null);
 
     const claim = ivsResponse.claim || ivsResponse.data?.claim || null;
 
-    if (ivsResponse.status === 'error' && ivsResponse.error_code === 'IVS_UNAVAILABLE') {
+    if (isIvsError && (ivsErrorCode === 'IVS_UNAVAILABLE' || ivsErrorCode === 'SERVICE_UNAVAILABLE')) {
       const queueAllowed = options?.queue_if_ivs_unavailable !== false && config.queue.enabled;
       if (queueAllowed) {
         return handleQueueRequest(req, res, correlationId, verification_request_id, gatewayAuditRef, identifier, request_context, person_context, options, db);
@@ -201,11 +208,13 @@ async function handleVerification(req, res) {
       });
     }
 
-    if (ivsResponse.status === 'error') {
-      recordAuditEvent(EventTypes.IVS_CALL_FAILED, correlationId, { error: ivsResponse.error_code });
+    if (isIvsError) {
+      recordAuditEvent(EventTypes.IVS_CALL_FAILED, correlationId, { error: ivsErrorCode, message: ivsErrorMessage });
       db.prepare("UPDATE verification_requests SET status = 'failed', completed_at = datetime('now') WHERE correlation_id = ?").run(correlationId);
       return res.status(400).json({
-        ...ivsResponse,
+        status: 'error',
+        error_code: ivsErrorCode,
+        message: ivsErrorMessage,
         verification_request_id,
         correlation_id: correlationId,
         gateway_audit_ref: gatewayAuditRef,
