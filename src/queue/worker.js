@@ -108,7 +108,15 @@ async function processQueueItem(item, db) {
   const correlationId = item.correlation_id;
 
   try {
-    const requestJson = decryptPayload(item.encrypted_request_payload);
+    let requestJson;
+    try {
+      requestJson = decryptPayload(item.encrypted_request_payload);
+    } catch (decryptErr) {
+      console.error(`[Queue Worker] Cannot decrypt payload for ${correlationId} — marking as failed (key mismatch). Set CVG_HMAC_KEY in .env for stable encryption.`);
+      db.prepare("UPDATE verification_queue SET status = 'failed' WHERE id = ?").run(item.id);
+      db.prepare("UPDATE verification_requests SET status = 'failed', completed_at = datetime('now') WHERE correlation_id = ?").run(correlationId);
+      return;
+    }
     const request = JSON.parse(requestJson);
 
     recordAuditEvent(EventTypes.QUEUED_REQUEST_RETRIED, correlationId, { retry_count: item.retry_count + 1 });
@@ -263,8 +271,24 @@ async function processCallbackItem(item, db) {
     return;
   }
 
+  let payloadJson;
   try {
-    const payloadJson = decryptPayload(item.payload_encrypted);
+    payloadJson = decryptPayload(item.payload_encrypted);
+  } catch (decryptErr) {
+    // Encryption key changed (container restart without stable CVG_HMAC_KEY) — mark as permanently failed
+    console.error(`[Callback Worker] Cannot decrypt payload for ${correlation_id} — marking as failed (key mismatch). Set CVG_HMAC_KEY in .env for stable encryption.`);
+    db.prepare("UPDATE callback_delivery_queue SET status = 'failed', last_error = ? WHERE id = ?")
+      .run('Decryption failed: encryption key changed between restarts', id);
+    db.prepare("UPDATE verification_requests SET callback_status = 'failed', callback_last_error = ? WHERE correlation_id = ?")
+      .run('Payload undecryptable after key rotation', correlation_id);
+    recordAuditEvent(EventTypes.CENTRAL_DIT_CALLBACK_FAILED, correlation_id, {
+      reason: 'DECRYPTION_FAILED',
+      detail: 'Encryption key changed between container restarts',
+    });
+    return;
+  }
+
+  try {
     const payload = JSON.parse(payloadJson);
 
     recordAuditEvent(EventTypes.CALLBACK_DELIVERY_RETRIED, correlation_id, {
