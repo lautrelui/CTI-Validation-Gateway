@@ -33,6 +33,7 @@ function buildCallbackPayload(ctx) {
     claim: normalizeClaimStatus(ctx.claim),
     signature_verified: ctx.signature_verified || false,
     signature_method: ctx.signature_method || null,
+    processed_at: new Date().toISOString(),
     delivered_at: new Date().toISOString(),
   };
 }
