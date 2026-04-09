@@ -50,6 +50,20 @@ router.get('/dashboard', requireDashboardAuth, (req, res) => {
 });
 
 /**
+ * GET /dashboard/api/oneboxes - Return authorized OneBox callers for the test console.
+ * Protected by dashboard auth so API keys are only visible to logged-in admins.
+ */
+router.get('/dashboard/api/oneboxes', requireDashboardAuth, (req, res) => {
+  const callers = config.authorizedCallers;
+  const result = Object.entries(callers).map(([id, c]) => ({
+    id,
+    name: c.name,
+    apiKey: c.apiKey,
+  }));
+  res.json(result);
+});
+
+/**
  * GET / - Redirect to dashboard
  */
 router.get('/', (req, res) => {

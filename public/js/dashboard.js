@@ -343,9 +343,7 @@
             <div class="btn-row" style="margin-bottom:12px">
               <span style="font-size:12px;color:var(--text-muted)">OneBox:</span>
               <select id="test-onebox" style="padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px">
-                <option value="OBX-BGFI-01|dev-key-bgfi-01">OBX-BGFI-01</option>
-                <option value="OBX-UBA-01|dev-key-uba-01">OBX-UBA-01</option>
-                <option value="OBX-TEST-01|dev-key-test-01">OBX-TEST-01</option>
+                <option value="">Loading...</option>
               </select>
             </div>
             <textarea id="test-request" class="code-input">${JSON.stringify(getPreset('niu-bgfi'), null, 2)}</textarea>
@@ -370,6 +368,38 @@
     document.getElementById('test-preset').addEventListener('change', (e) => {
       document.getElementById('test-request').value = JSON.stringify(getPreset(e.target.value), null, 2);
     });
+
+    // When OneBox changes, update onebox_id in the request body to avoid mismatch
+    document.getElementById('test-onebox').addEventListener('change', () => {
+      const textarea = document.getElementById('test-request');
+      const [selectedOneboxId] = document.getElementById('test-onebox').value.split('|');
+      try {
+        const body = JSON.parse(textarea.value);
+        if (body.request_context) {
+          body.request_context.onebox_id = selectedOneboxId;
+          textarea.value = JSON.stringify(body, null, 2);
+        }
+      } catch (e) { /* ignore parse errors */ }
+    });
+
+    // Load OneBox options from server so keys always match actual config
+    fetch('/dashboard/api/oneboxes')
+      .then(r => r.json())
+      .then(callers => {
+        const sel = document.getElementById('test-onebox');
+        sel.innerHTML = callers.map(c =>
+          `<option value="${c.id}|${c.apiKey}">${c.id}</option>`
+        ).join('');
+      })
+      .catch(() => {
+        // Fallback to dev keys if endpoint unavailable
+        const sel = document.getElementById('test-onebox');
+        sel.innerHTML = `
+          <option value="OBX-BGFI-01|dev-key-bgfi-01">OBX-BGFI-01</option>
+          <option value="OBX-UBA-01|dev-key-uba-01">OBX-UBA-01</option>
+          <option value="OBX-TEST-01|dev-key-test-01">OBX-TEST-01</option>
+        `;
+      });
   }
 
   function getPreset(name) {
