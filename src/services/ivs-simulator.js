@@ -28,6 +28,7 @@ const MOCK_REGISTRY = {
     '9876543210123': { full_name: 'MARIE DUPONT', date_of_birth: '1992-03-22', status: 'active' },
     '5555555555555': { full_name: 'PAUL MBONGO', date_of_birth: '1975-11-15', status: 'active' },
     '1111111111111': { full_name: 'SOPHIE NGOMA', date_of_birth: '1988-07-01', status: 'active' },
+    'P24000000544639E': { full_name: 'ALAIN MOUANGA', date_of_birth: '1990-08-25', status: 'active' },
   },
   PASSPORT: {
     'CG1234567': { full_name: 'JEAN GEOFFRION', date_of_birth: '1980-05-10', status: 'active' },

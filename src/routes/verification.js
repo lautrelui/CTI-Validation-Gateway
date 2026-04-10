@@ -16,53 +16,12 @@ const { validateVerificationRequest } = require('../middleware/validate');
 const { generateCorrelationId, generateAuditRef, generateLocalVerificationRef } = require('../services/correlation');
 const { isIvsAvailable } = require('../services/ivs-simulator');
 const { sendVerification, verifyClaimRemote } = require('../services/ivs-client');
-const { maskValue, verifyClaim, verifyClaimHs512, encryptPayload } = require('../crypto');
+const { maskValue, encryptPayload } = require('../crypto');
 const { postVerificationCallback } = require('../services/central-dit-client');
 const { buildCallbackPayload } = require('../services/callback-payload-builder');
+const { verifyIvsClaim } = require('../services/claim-verification');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
-
-// --- Signature verification helpers (unchanged) ---
-
-function getClaimVerifyMode() {
-  const mode = config.ivs.claimVerifyMode;
-  if (mode !== 'auto') return mode;
-  if (config.ivs.signingKey) return 'local';
-  if (config.ivs.mode === 'external') return 'remote';
-  return 'legacy';
-}
-
-async function verifyIvsClaim(claim) {
-  if (!claim?.signature) {
-    return { verified: false, method: 'none', error: 'No signature on claim' };
-  }
-
-  const mode = getClaimVerifyMode();
-
-  if (mode === 'none') {
-    return { verified: true, method: 'skipped' };
-  }
-
-  if (mode === 'local') {
-    const result = verifyClaimHs512(claim.signature, config.ivs.signingKey);
-    return { verified: result.verified, method: 'local_hs512', error: result.error || undefined };
-  }
-
-  if (mode === 'remote') {
-    try {
-      const ivsResult = await verifyClaimRemote(claim);
-      const verified = ivsResult.verified === true || ivsResult.status === 'valid';
-      return { verified, method: 'remote_ivs', error: verified ? undefined : (ivsResult.error || ivsResult.message) };
-    } catch (err) {
-      return { verified: false, method: 'remote_ivs', error: err.message };
-    }
-  }
-
-  // Legacy RSA verification (simulator mode)
-  const { signature, ...claimWithoutSig } = claim;
-  const verified = verifyClaim(claimWithoutSig, signature);
-  return { verified, method: 'legacy_rsa' };
-}
 
 // --- Main verification endpoint ---
 

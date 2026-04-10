@@ -109,6 +109,7 @@ describe('Central DIT Callback Flow', () => {
     process.env.CVG_QUEUE_ENABLED = 'true';
     process.env.IVS_CLAIM_VERIFY_MODE = 'none'; // skip sig verification in tests (simulator uses RSA)
     process.env.CVG_DB_PATH = ':memory:';
+    process.env.CVG_PORT = '0'; // Let OS assign a free port
 
     // Clear module cache to pick up new env
     for (const key of Object.keys(require.cache)) {
@@ -120,9 +121,17 @@ describe('Central DIT Callback Flow', () => {
     // Now require the app fresh
     const { app, start } = require('../server');
     cvgServer = start();
+    // Wait until server is actually listening before running tests
+    await new Promise((resolve) => {
+      if (cvgServer.listening) return resolve();
+      cvgServer.on('listening', resolve);
+    });
   });
 
   after(async () => {
+    // Stop background workers to allow process exit
+    const { stopQueueWorker } = require('../queue/worker');
+    stopQueueWorker();
     if (cvgServer) cvgServer.close();
     await ditMock.stop();
     // Restore env

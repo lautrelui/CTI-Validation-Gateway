@@ -42,10 +42,10 @@ function normalizeNIU(value, notes) {
   let result = value.replace(/[\s-]/g, '');
   if (result !== value.trim()) notes.push('removed separators');
 
-  // NIU should be numeric, typically 13 digits for CG
-  if (!/^\d+$/.test(result)) {
-    notes.push('warning: non-numeric characters present');
-  }
+  // NIU can be alphanumeric (e.g. P24000000544639E) — uppercase for consistency
+  const uppercased = result.toUpperCase();
+  if (uppercased !== result) notes.push('uppercased');
+  result = uppercased;
 
   return result;
 }
@@ -83,8 +83,8 @@ function normalizeDriverLicense(value, country, notes) {
 function validateIdentifierFormat(identifierType, normalizedValue, issuerCountry) {
   switch (identifierType) {
     case 'NIU':
-      if (!/^\d{10,15}$/.test(normalizedValue)) {
-        return { valid: false, reason: 'NIU must be 10-15 digits' };
+      if (!/^[A-Z0-9]{10,20}$/.test(normalizedValue)) {
+        return { valid: false, reason: 'NIU must be 10-20 alphanumeric characters' };
       }
       return { valid: true };
 

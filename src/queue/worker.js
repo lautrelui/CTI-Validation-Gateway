@@ -7,44 +7,14 @@
  */
 
 const { getDb } = require('../database/db');
-const { decryptPayload, verifyClaim, verifyClaimHs512, encryptPayload } = require('../crypto');
+const { decryptPayload, encryptPayload } = require('../crypto');
 const { isIvsAvailable } = require('../services/ivs-simulator');
-const { sendVerification, verifyClaimRemote } = require('../services/ivs-client');
+const { sendVerification } = require('../services/ivs-client');
 const { postVerificationCallback } = require('../services/central-dit-client');
 const { buildCallbackPayload } = require('../services/callback-payload-builder');
+const { verifyIvsClaim } = require('../services/claim-verification');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
-
-// --- Signature verification helper (mirrors route logic) ---
-
-async function verifyClaimSignature(claim) {
-  if (!claim?.signature) return { verified: false, method: 'none' };
-
-  const mode = config.ivs.claimVerifyMode;
-  const effectiveMode = mode === 'auto'
-    ? (config.ivs.signingKey ? 'local' : config.ivs.mode === 'external' ? 'remote' : 'legacy')
-    : mode;
-
-  if (effectiveMode === 'none') return { verified: true, method: 'skipped' };
-
-  if (effectiveMode === 'local') {
-    const result = verifyClaimHs512(claim.signature, config.ivs.signingKey);
-    return { verified: result.verified, method: 'local_hs512' };
-  }
-
-  if (effectiveMode === 'remote') {
-    try {
-      const ivsResult = await verifyClaimRemote(claim);
-      return { verified: ivsResult.verified === true || ivsResult.status === 'valid', method: 'remote_ivs' };
-    } catch {
-      return { verified: false, method: 'remote_ivs' };
-    }
-  }
-
-  // Legacy RSA
-  const { signature, ...claimWithoutSig } = claim;
-  return { verified: verifyClaim(claimWithoutSig, signature), method: 'legacy_rsa' };
-}
 
 // --- Worker lifecycle ---
 
@@ -136,7 +106,7 @@ async function processQueueItem(item, db) {
     const claim = ivsResponse.claim || ivsResponse.data?.claim || null;
 
     if (!isIvsError && verificationStatus !== 'registry_unavailable') {
-      const sigResult = await verifyClaimSignature(claim);
+      const sigResult = await verifyIvsClaim(claim);
       const sigVerified = sigResult.verified;
 
       const finalStatus = verificationStatus || 'unknown';
