@@ -51,4 +51,29 @@ router.get('/', (req, res) => {
   });
 });
 
+/**
+ * GET /api/v1/health/live
+ *
+ * Liveness probe — returns 200 if CVG can accept requests.
+ * Only checks DB and IVS, NOT Central DIT reachability
+ * (which can be transiently degraded without affecting CVG's ability to serve).
+ */
+router.get('/live', (req, res) => {
+  const db = getDb();
+  let dbOk = false;
+  try {
+    db.prepare('SELECT 1').get();
+    dbOk = true;
+  } catch (e) { /* db down */ }
+
+  const ivsOk = isIvsAvailable();
+  const ok = dbOk && ivsOk;
+
+  res.status(ok ? 200 : 503).json({
+    status: ok ? 'ok' : 'degraded',
+    gateway_id: config.gateway.id,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 module.exports = router;
