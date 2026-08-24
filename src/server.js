@@ -13,6 +13,7 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 
 const config = require('./config');
+const { startupBanner } = require('./startup-banner');
 const { getDb, closeDb } = require('./database/db');
 const { startQueueWorker, stopQueueWorker } = require('./queue/worker');
 const { startIvsHealthCheck, stopIvsHealthCheck } = require('./services/ivs-simulator');
@@ -109,22 +110,7 @@ function start() {
   }
 
   const server = app.listen(config.port, () => {
-    console.log(`
-╔═══════════════════════════════════════════════════════╗
-║   CTI Verification Gateway (CVG) v1.0                ║
-║   Gateway ID: ${config.gateway.id.padEnd(39)}║
-║   Port: ${String(config.port).padEnd(46)}║
-║   Environment: ${config.env.padEnd(38)}║
-║   IVS Mode: ${config.ivs.mode.padEnd(41)}║
-║   IVS URL: ${(config.ivs.mode === 'external' ? config.ivs.baseUrl : 'N/A (simulator)').padEnd(42)}║
-║   Central DIT: ${(config.centralDit.baseUrl || 'N/A').padEnd(37)}║
-║   Queue: ${(config.queue.enabled ? 'enabled' : 'disabled').padEnd(45)}║
-║   Dashboard: http://localhost:${config.port}/dashboard${' '.repeat(14)}║
-║   Health: http://localhost:${config.port}/api/v1/health${' '.repeat(11)}║
-╚═══════════════════════════════════════════════════════╝
-    `.trim());
-    console.log(`\n[CVG] Login credentials: ${config.admin.username} / ${config.admin.password}`);
-    console.log(`[CVG] Authorized OneBox nodes: ${Object.keys(config.authorizedCallers).join(', ')}\n`);
+    for (const line of startupBanner(config)) console.log(line);
   });
 
   // Graceful shutdown
