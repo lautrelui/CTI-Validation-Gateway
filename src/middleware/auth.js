@@ -17,8 +17,10 @@ function authenticateOneBox(req, res, next) {
     });
   }
 
+  // A caller slot with no provisioned key (config.callerApiKey returns null
+  // outside development) is unusable — never fall through to a comparison.
   const caller = config.authorizedCallers[oneboxId];
-  if (!caller || caller.apiKey !== apiKey) {
+  if (!caller || !caller.apiKey || caller.apiKey !== apiKey) {
     return res.status(401).json({
       status: 'error',
       error_code: 'UNAUTHORIZED_CALLER',

@@ -8,6 +8,22 @@ const DEFAULT_JWT_SECRET = process.env.CVG_JWT_SECRET || crypto.randomBytes(48).
 const DEFAULT_SESSION_SECRET = process.env.CVG_SESSION_SECRET || crypto.randomBytes(48).toString('hex');
 const DEFAULT_ADMIN_PASSWORD = process.env.CVG_ADMIN_PASSWORD || 'admin';
 
+const IS_DEVELOPMENT = (process.env.NODE_ENV || 'development') === 'development';
+
+/**
+ * Resolve an authorized-caller API key.
+ *
+ * Development keeps the convenience fallback so a bare checkout still runs.
+ * Every other environment (staging, production, test) fails closed: an unset
+ * variable yields null, which authenticateOneBox() rejects. A source-visible
+ * key must never be able to authenticate outside development.
+ */
+function callerApiKey(envVar, developmentFallback) {
+  const configured = process.env[envVar];
+  if (configured) return configured;
+  return IS_DEVELOPMENT ? developmentFallback : null;
+}
+
 const config = {
   port: parseInt(process.env.CVG_PORT || '3010', 10),
   env: process.env.NODE_ENV || 'development',
@@ -77,11 +93,16 @@ const config = {
     workerIntervalMs: parseInt(process.env.CVG_QUEUE_WORKER_INTERVAL || '30000', 10),
   },
 
-  // Authorized OneBox callers
+  // Authorized OneBox callers.
+  //
+  // The dev-key-* fallbacks are convenience only and exist ONLY when
+  // NODE_ENV=development. Outside development an unset caller key leaves the
+  // slot unusable (apiKey === null) rather than live with a key that is
+  // published in this file — see callerApiKey().
   authorizedCallers: {
-    'OBX-BGFI-01': { assujetti: 'BGFI', name: 'BGFI Congo', apiKey: process.env.OBX_BGFI_API_KEY || 'dev-key-bgfi-01' },
-    'OBX-UBA-01': { assujetti: 'UBA', name: 'UBA Congo', apiKey: process.env.OBX_UBA_API_KEY || 'dev-key-uba-01' },
-    'OBX-TEST-01': { assujetti: 'TEST', name: 'Test OneBox', apiKey: process.env.OBX_TEST_API_KEY || 'dev-key-test-01' },
+    'OBX-BGFI-01': { assujetti: 'BGFI', name: 'BGFI Congo', apiKey: callerApiKey('OBX_BGFI_API_KEY', 'dev-key-bgfi-01') },
+    'OBX-UBA-01': { assujetti: 'UBA', name: 'UBA Congo', apiKey: callerApiKey('OBX_UBA_API_KEY', 'dev-key-uba-01') },
+    'OBX-TEST-01': { assujetti: 'TEST', name: 'Test OneBox', apiKey: callerApiKey('OBX_TEST_API_KEY', 'dev-key-test-01') },
   },
 
   supportedIdentifierTypes: ['NIU', 'PASSPORT', 'NID', 'DRIVER_LICENSE'],
