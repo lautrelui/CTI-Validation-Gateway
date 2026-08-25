@@ -20,6 +20,7 @@ const { maskValue, encryptPayload } = require('../crypto');
 const { postVerificationCallback } = require('../services/central-dit-client');
 const { buildCallbackPayload } = require('../services/callback-payload-builder');
 const { verifyIvsClaim } = require('../services/claim-verification');
+const { summarizeIvsResponse } = require('../services/ivs-log-summary');
 const { recordAuditEvent, EventTypes } = require('../audit');
 const config = require('../config');
 
@@ -131,9 +132,17 @@ async function handleVerification(req, res) {
   try {
     const ivsResponse = await sendVerification(ivsRequest);
 
-    // Log the raw IVS response for debugging (external mode)
+    // Log a redacted summary of the IVS response for debugging (external mode).
+    // The raw response must never be logged: claim.signature is the compact
+    // signed JWT and is bearer-grade material.
     if (config.ivs.mode === 'external') {
-      console.log(`[CVG] IVS response for ${correlationId}:`, JSON.stringify(ivsResponse, null, 2));
+      console.log(
+        `[CVG] IVS response for ${correlationId}:`,
+        JSON.stringify(summarizeIvsResponse(ivsResponse, {
+          correlation_id: correlationId,
+          verification_request_id,
+        })),
+      );
     }
 
     // Detect error responses from IVS.
@@ -204,6 +213,16 @@ async function handleVerification(req, res) {
         message: `IVS claim signature verification failed (${sigResult.method}): ${sigResult.error || 'unknown'}`,
       });
     }
+
+    // Redacted signature-verification outcome (no signature material).
+    console.log(
+      `[CVG] IVS claim signature check for ${correlationId}:`,
+      JSON.stringify(summarizeIvsResponse(ivsResponse, {
+        correlation_id: correlationId,
+        verification_request_id,
+        signature_verified: signatureVerified,
+      })),
+    );
 
     // Store result
     const finalStatus = verificationStatus || 'unknown';
